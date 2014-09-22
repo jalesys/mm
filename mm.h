@@ -19,6 +19,7 @@ struct block_t {
 extern int   mm_init(void);
 extern void  *mm_malloc(size_t size);
 extern void  mm_free(void *ptr);
+extern void  *mm_realloc(void *ptr, size_t size);
 
 
 static block_s *find_fit(size_t size);
@@ -32,6 +33,9 @@ int  initialized;
 void *mm_start;
 void *mm_end;
 
+
+//for debug
+static void print_blocks(void);
 
 #endif
 

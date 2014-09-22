@@ -1,6 +1,12 @@
 #include <unistd.h>
 #include <string.h>
+#include <assert.h>
+#include <stdio.h>
 #include "mm.h"
+
+#define DEBUG
+
+
 
 int mm_init(void)
 {
@@ -25,6 +31,10 @@ int mm_init(void)
 	tail_block->pre = head_block;
 	tail_block->next = NULL;
 	initialized = 1;
+#ifdef DEBUG
+	printf("[init]\n");
+	print_blocks();
+#endif
 	return 0;
 }	
 
@@ -34,25 +44,35 @@ size_t align8(size_t size)
 	return (extrobytes==0 ? size : size - extrobytes + 8);
 }
 
+
+//split() doesn't care if block is alloced or not
 void split(block_s * block, size_t size)
 {
-	if(block->block_size <= size)
+	size_t size_align8 =  align8(size);
+	if(block->block_size <= size_align8 + HEADSIZE)
 		return;
 	
 	//build a new block and update the block info
-	block_s *new_block = block + (size / 8);
+	block_s *new_block = block + (size_align8 / 8);
 	new_block->is_avilible = 1;
-	new_block->block_size = block->block_size - size - HEADSIZE;
+	new_block->block_size = block->block_size - size_align8 - HEADSIZE;
 	new_block->pre = block;
 	new_block->next = block->next;
 	block->next = new_block;
+	block->block_size = size_align8;
+#ifdef DEBUG
+	printf("[split]\n");
+	print_blocks();
+#endif
 }
 
 block_s *find_fit(size_t size)
 {
 	block_s *search_addr = ((block_s *) mm_start) + 1;
 	if(mm_start == (mm_end + HEADSIZE))
+	{
 		return NULL;
+	}
 	while(search_addr != mm_end)
 	{
 		if(search_addr->is_avilible == 1&& 
@@ -96,6 +116,10 @@ void *mm_malloc(size_t size)
 		tail_block->pre = block;
 		tail_block->next = NULL;
 	}
+#ifdef DEBUG
+		printf("[mm_malloc]\n");
+	print_blocks();
+#endif
 	return (void *)block + HEADSIZE;
 }
 
@@ -115,29 +139,96 @@ void coalesce(block_s *block)
 	if(block->pre->is_avilible == 0 && block->next->is_avilible == 0)
 		return;
 
+
+#ifdef DEBUG
+	printf("[before coalesce]\n");
+	print_blocks();
+#endif
 	if(block->pre->is_avilible != 0 && block->next->is_avilible == 0)
 	{
+#ifdef DEBUG
+		printf("[coalesce] 1 0\n");
+#endif
 		block->pre->next = block->next;
+		block->next->pre = block->pre;
 		block->pre->block_size += block->block_size + HEADSIZE;
 	}
 	else if(block->pre->is_avilible == 0 && block->next->is_avilible != 0)
 	{
-		block->next = block->next->next;
-		block->block_size += block->next->block_size + HEADSIZE;
+#ifdef DEBUG
+		printf("[coalesce] 0 1\n");
+#endif
+		block_s *bak = block->next;
+		bak->pre->next = bak->next;
+		bak->next->pre = bak->pre;
+		/*block->next = block->next->next;*/
+		/*block->next->next->pre = block;*/
+		block->block_size += bak->block_size + HEADSIZE;
 	}
 	else
 	{
+#ifdef DEBUG
+		printf("[coalesce] 1 1\n");
+#endif
 		block->pre->next = block->next->next;
+		block->next->next->pre = block->pre;
 		block->pre->block_size += block->block_size + 
 			block->next->block_size + 2*HEADSIZE;
 	}
+#ifdef DEBUG
+	printf("[after coalesce]\n");
+	print_blocks();
+#endif
 
 }
 
+void *mm_realloc(void *ptr, size_t size)
+{
+	assert(size > 0);
+	if(ptr == NULL)
+		return mm_malloc(size);
+	block_s *block = (block_s *) (ptr - HEADSIZE);
+	size_t block_size = block->block_size;
+	if(size == block_size)
+		return ptr;
+	
+	if(size > block_size)
+	{
+		void *new_ptr = mm_malloc(size);
+		if(new_ptr == NULL)
+			return NULL;
+		memcpy(new_ptr, ptr, block_size);	
+		mm_free(ptr);
+#ifdef DEBUG
+		printf("[realloc]\n");
+	print_blocks();
+#endif
+		return new_ptr;
+	}
+	else
+	{
+		split(block, size);
+#ifdef DEBUG
+		printf("[realloc]\n");
+	print_blocks();
+#endif
+		return ptr;
+	}
+}
 
-
-
-
+void print_blocks(void)
+{
+	int index = 0;
+	block_s *p = (block_s *) mm_start;
+	printf("=============================\n");
+	do
+	{
+		printf("%d : available = %d;  block_size = %d.\n", index++, p->is_avilible, p->block_size);
+		p = p->next;
+	}
+	while(p != NULL);
+	printf("=============================\n");
+}
 
 
 
