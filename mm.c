@@ -78,7 +78,7 @@ block_s *find_fit(size_t size)
 		if(search_addr->is_avilible == 1&& 
 				search_addr->block_size >= size)
 		{
-			if(search_addr->block_size >= 3*size)
+			if(search_addr->block_size >= 2*size)
 				split(search_addr, size);
 			return search_addr;
 		}
@@ -107,6 +107,7 @@ void *mm_malloc(size_t size)
 
 		block->is_avilible = 0;
 		block->block_size = size_align8;
+		printf("alloced size: %d\n", size_align8);
 		block->pre = last_block;	
 		block->next = tail_block;
 		last_block->next = block;
@@ -115,6 +116,10 @@ void *mm_malloc(size_t size)
 		tail_block->block_size = 0;
 		tail_block->pre = block;
 		tail_block->next = NULL;
+	}
+	else
+	{
+		block->is_avilible = 0;
 	}
 #ifdef DEBUG
 		printf("[mm_malloc]\n");
@@ -125,10 +130,19 @@ void *mm_malloc(size_t size)
 
 void mm_free(void *ptr)
 {
+#ifdef DEBUG
+	printf("[before free]\n");
+	print_blocks();
+#endif
 	block_s *block = (block_s *) (ptr - HEADSIZE);
 	ptr = NULL;
 	block->is_avilible = 1;
+	printf("block_size = %d\n", block->block_size);
 	coalesce(block);
+#ifdef DEBUG
+	printf("[after free]\n");
+	print_blocks();
+#endif
 }
 
 void coalesce(block_s *block)
@@ -140,10 +154,6 @@ void coalesce(block_s *block)
 		return;
 
 
-#ifdef DEBUG
-	printf("[before coalesce]\n");
-	print_blocks();
-#endif
 	if(block->pre->is_avilible != 0 && block->next->is_avilible == 0)
 	{
 #ifdef DEBUG
@@ -159,10 +169,8 @@ void coalesce(block_s *block)
 		printf("[coalesce] 0 1\n");
 #endif
 		block_s *bak = block->next;
-		bak->pre->next = bak->next;
-		bak->next->pre = bak->pre;
-		/*block->next = block->next->next;*/
-		/*block->next->next->pre = block;*/
+		block->next = block->next->next;
+		bak->next->pre = block;
 		block->block_size += bak->block_size + HEADSIZE;
 	}
 	else
@@ -175,15 +183,13 @@ void coalesce(block_s *block)
 		block->pre->block_size += block->block_size + 
 			block->next->block_size + 2*HEADSIZE;
 	}
-#ifdef DEBUG
-	printf("[after coalesce]\n");
-	print_blocks();
-#endif
-
 }
 
 void *mm_realloc(void *ptr, size_t size)
 {
+#ifdef DEBUG
+	printf("[realloc] ########################\n");
+#endif
 	assert(size > 0);
 	if(ptr == NULL)
 		return mm_malloc(size);
@@ -202,6 +208,7 @@ void *mm_realloc(void *ptr, size_t size)
 #ifdef DEBUG
 		printf("[realloc]\n");
 	print_blocks();
+	printf("[realloc] ########################\n");
 #endif
 		return new_ptr;
 	}
@@ -211,6 +218,7 @@ void *mm_realloc(void *ptr, size_t size)
 #ifdef DEBUG
 		printf("[realloc]\n");
 	print_blocks();
+	printf("[realloc] ########################\n");
 #endif
 		return ptr;
 	}

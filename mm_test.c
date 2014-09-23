@@ -1,11 +1,14 @@
-ear
-include <stdio.h>
+#include <stdio.h>
 #include "mm.h"
 
 typedef struct test test_s;
 struct test{
 	int a;
 	char b[8];
+};
+struct test1{
+	int a;
+	char b[20];
 };
 int main()
 {
@@ -26,4 +29,7 @@ int main()
 
 	test_s *t2 = (test_s *) mm_malloc(sizeof(struct test));
 	t2->a = 1777777;
+	mm_free(t2);
+	t1 = mm_realloc(t1, sizeof(struct test1));
+	mm_free(t1);
 }
